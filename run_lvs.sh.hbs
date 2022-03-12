@@ -1,0 +1,8 @@
+#!/bin/bash
+set -euf -o pipefail
+
+netgen -noconsole << EOF
+lvs { {{netlist}} {{netlist_cell}} } { {{layout}} {{layout_cell}} } {{setup_file}} {{output_file}} -full -json
+quit
+EOF
+
