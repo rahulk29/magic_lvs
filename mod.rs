@@ -7,7 +7,7 @@ use std::{
 };
 
 use magic_vlsi::MagicInstance;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     error::Result,
@@ -25,6 +25,14 @@ pub struct NetgenLvsOpts {
     /// The name of the technology to use when running magic
     pub tech: String,
 }
+
+#[derive(Debug, Deserialize, Clone, Eq, PartialEq)]
+struct NetgenOutput {
+    runs: Vec<NetgenComparison>,
+}
+
+#[derive(Debug, Deserialize, Clone, Eq, PartialEq)]
+struct NetgenComparison {}
 
 impl NetgenLvs {
     pub fn new() -> Self {
