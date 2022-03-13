@@ -67,6 +67,7 @@ fn extract(input: &LvsInput<NetgenLvsOpts>) -> Result<PathBuf> {
     let mut m = MagicInstance::builder()
         .cwd(&input.work_dir)
         .tech("sky130A")
+        .port(portpicker::pick_unused_port().expect("no free ports"))
         .build()
         .unwrap();
 
