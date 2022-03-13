@@ -1,0 +1,7 @@
+.subckt nand2_n420x150_p420x150 a b gnd vdd y
+XFET0 net4 a gnd gnd sky130_fd_pr__nfet_01v8 w=1.6 l=150m
+XFET1 y b net4 gnd sky130_fd_pr__nfet_01v8 w=1.6 l=150m
+XFET2 y a vdd vdd sky130_fd_pr__pfet_01v8 w=1.23 l=150m
+XFET3 y b vdd vdd sky130_fd_pr__pfet_01v8 w=1.23 l=150m
+.ends
+
