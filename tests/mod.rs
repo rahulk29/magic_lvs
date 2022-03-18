@@ -1,6 +1,6 @@
 use std::{fs::read_to_string, path::PathBuf};
 
-use crate::verification::lvs::{Lvs, LvsInput};
+use crate::lvs::{Lvs, LvsInput};
 
 use super::{create_run_file, NetgenLvs, NetgenLvsOpts};
 
@@ -57,9 +57,8 @@ fn test_lvs_sky130_clean() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&work_dir)?;
     println!("done creating dirs");
     let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let netlist = base.join("src/verification/plugins/netgen_lvs/tests/data/clean/nand2.spice");
-    let layout =
-        base.join("src/verification/plugins/netgen_lvs/tests/data/clean/nand2_dec_auto.mag");
+    let netlist = base.join("src/plugins/netgen_lvs/tests/data/clean/nand2.spice");
+    let layout = base.join("src/plugins/netgen_lvs/tests/data/clean/nand2_dec_auto.mag");
     NetgenLvs::new().lvs(LvsInput {
         netlist,
         layout,

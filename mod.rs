@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::Result,
-    verification::lvs::{Lvs, LvsError, LvsInput, LvsOutput},
+    lvs::{Lvs, LvsError, LvsInput, LvsOutput},
 };
 
 #[cfg(test)]
