@@ -35,6 +35,7 @@ impl Default for NetgenLvs {
 
 impl Lvs for NetgenLvs {
     fn lvs(&self, input: LvsInput, work_dir: PathBuf) -> Result<LvsOutput> {
+        std::fs::create_dir_all(&work_dir)?;
         // Extract the layout into a netlist using MAGIC
         let ext_path = extract(&input, &work_dir)?;
         // Run netgen on the resulting netlist
@@ -92,8 +93,8 @@ fn run_netgen(
 const SKY130_SETUP_FILE: &str = include_str!("tech/sky130/setup.tcl");
 const RUN_LVS_TEMPLATE: &str = include_str!("run_lvs.sh.hbs");
 const RUN_LVS_FILENAME: &str = "run_lvs.sh";
-const SETUP_FILE_NAME: &str = "sram22_netgen_lvs_setup.tcl";
-const OUT_FILE_NAME: &str = "sram22_netgen_lvs_comp.json";
+const SETUP_FILE_NAME: &str = "edatool_netgen_lvs_setup.tcl";
+const OUT_FILE_NAME: &str = "edatool_netgen_lvs_comp.json";
 
 #[derive(Debug, Serialize, Clone, Eq, PartialEq)]
 struct RunFileOpts {
