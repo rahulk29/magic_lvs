@@ -7,11 +7,12 @@ use std::{
 };
 
 use magic_vlsi::MagicInstance;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::{
     error::Result,
-    lvs::{Lvs, LvsError, LvsInput, LvsOutput},
+    lvs::Lvs,
+    protos::lvs::{LvsInput, LvsOutput},
 };
 
 #[cfg(test)]
@@ -19,20 +20,6 @@ mod tests;
 
 #[derive(Debug)]
 pub struct NetgenLvs {}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct NetgenLvsOpts {
-    /// The name of the technology to use when running magic
-    pub tech: String,
-}
-
-#[derive(Debug, Deserialize, Clone, Eq, PartialEq)]
-struct NetgenOutput {
-    runs: Vec<NetgenComparison>,
-}
-
-#[derive(Debug, Deserialize, Clone, Eq, PartialEq)]
-struct NetgenComparison {}
 
 impl NetgenLvs {
     pub fn new() -> Self {
@@ -46,27 +33,29 @@ impl Default for NetgenLvs {
     }
 }
 
-impl Lvs<NetgenLvsOpts, LvsError> for NetgenLvs {
-    fn lvs(&self, input: LvsInput<NetgenLvsOpts>) -> Result<LvsOutput<LvsError>> {
+impl Lvs for NetgenLvs {
+    fn lvs(&self, input: LvsInput, work_dir: PathBuf) -> Result<LvsOutput> {
         // Extract the layout into a netlist using MAGIC
-        println!("ext");
-        let ext_path = extract(&input)?;
-        println!("ext_done");
+        let ext_path = extract(&input, &work_dir)?;
         // Run netgen on the resulting netlist
-        run_netgen(&input, &ext_path)?;
-        println!("netgen_done");
+        run_netgen(&input, &work_dir, &ext_path)?;
 
         Ok(LvsOutput {
-            ok: false,
+            matches: false,
             errors: vec![],
+            warnings: vec![],
         })
     }
 }
 
-fn extract(input: &LvsInput<NetgenLvsOpts>) -> Result<PathBuf> {
+fn extract(input: &LvsInput, work_dir: impl AsRef<Path>) -> Result<PathBuf> {
+    let tech = match input.tech.as_str() {
+        "sky130" => "sky130A",
+        x => x,
+    };
     let mut m = MagicInstance::builder()
-        .cwd(&input.work_dir)
-        .tech("sky130A")
+        .cwd(&work_dir)
+        .tech(tech)
         .port(portpicker::pick_unused_port().expect("no free ports"))
         .build()
         .unwrap();
@@ -74,33 +63,29 @@ fn extract(input: &LvsInput<NetgenLvsOpts>) -> Result<PathBuf> {
     m.drc_off()?;
     m.set_snap(magic_vlsi::SnapMode::Internal)?;
 
-    let cell_path = input
-        .layout
-        .to_owned()
-        .into_os_string()
-        .into_string()
-        .unwrap();
-    println!("loading cell {}", &cell_path);
-    m.load(&cell_path)?;
+    println!("loading cell {}", &input.layout_path);
+    m.load(&input.layout_path)?;
 
     m.exec_one("ext2spice lvs")?;
     m.exec_one("ext2spice format ngspice")?;
     m.exec_one("ext")?;
     m.exec_one("ext2spice")?;
 
-    Ok(input.work_dir.join(format!("{}.spice", &input.layout_cell)))
+    Ok(work_dir
+        .as_ref()
+        .join(format!("{}.spice", &input.layout_cell)))
 }
 
-fn run_netgen(input: &LvsInput<NetgenLvsOpts>, ext_path: impl AsRef<Path>) -> Result<()> {
+fn run_netgen(
+    input: &LvsInput,
+    work_dir: impl AsRef<Path>,
+    ext_path: impl AsRef<Path>,
+) -> Result<()> {
     let ext_path = ext_path.as_ref();
-    create_setup_file(input)?;
-    println!("here 1");
-    let (run_file, out_file) = create_run_file(input, ext_path)?;
-    println!("here 2");
-    execute_run_file(&input.work_dir, &run_file)?;
-    println!("here 3");
+    create_setup_file(input, &work_dir)?;
+    let (run_file, out_file) = create_run_file(input, &work_dir, ext_path)?;
+    execute_run_file(&work_dir, &run_file)?;
     let _ = parse_lvs_results(&out_file)?;
-    println!("here 4");
     Ok(())
 }
 
@@ -120,14 +105,18 @@ struct RunFileOpts {
     output_file: PathBuf,
 }
 
-fn create_run_file(input: &LvsInput<NetgenLvsOpts>, ext_path: &Path) -> Result<(PathBuf, PathBuf)> {
+fn create_run_file(
+    input: &LvsInput,
+    work_dir: impl AsRef<Path>,
+    ext_path: &Path,
+) -> Result<(PathBuf, PathBuf)> {
     let mut hbs = handlebars::Handlebars::new();
     hbs.register_template_string(RUN_LVS_FILENAME, RUN_LVS_TEMPLATE)?;
 
-    let output_file = input.work_dir.join(OUT_FILE_NAME);
+    let output_file = work_dir.as_ref().join(OUT_FILE_NAME);
 
     let run_file_opts = RunFileOpts {
-        netlist: input.netlist.clone(),
+        netlist: PathBuf::from(&input.netlist_path),
         netlist_cell: input.netlist_cell.clone(),
         layout: ext_path.to_owned(),
         layout_cell: input.layout_cell.clone(),
@@ -135,7 +124,7 @@ fn create_run_file(input: &LvsInput<NetgenLvsOpts>, ext_path: &Path) -> Result<(
         output_file: output_file.clone(),
     };
 
-    let run_file_path = input.work_dir.join(RUN_LVS_FILENAME);
+    let run_file_path = work_dir.as_ref().join(RUN_LVS_FILENAME);
 
     // Render the template to the file
     {
@@ -155,15 +144,15 @@ fn create_run_file(input: &LvsInput<NetgenLvsOpts>, ext_path: &Path) -> Result<(
 }
 
 /// Creates a TCL file containing netgen setup commands
-fn create_setup_file(input: &LvsInput<NetgenLvsOpts>) -> Result<PathBuf> {
-    let path = input.work_dir.join(SETUP_FILE_NAME);
+fn create_setup_file(input: &LvsInput, work_dir: impl AsRef<Path>) -> Result<PathBuf> {
+    let path = work_dir.as_ref().join(SETUP_FILE_NAME);
     {
         let mut file = File::create(&path)?;
-        match input.opts.tech.as_str() {
+        match input.tech.as_str() {
             "sky130" => {
                 write!(&mut file, "{}", SKY130_SETUP_FILE)?;
             }
-            _ => unimplemented!("netgen lvs does not support tech {}", input.opts.tech),
+            _ => unimplemented!("netgen lvs does not support tech {}", input.tech),
         };
         file.flush()?;
     }

@@ -1,29 +1,40 @@
+use std::collections::HashMap;
 use std::{fs::read_to_string, path::PathBuf};
 
-use crate::lvs::{Lvs, LvsInput};
+use crate::protos::lvs::LvsInput;
+use crate::{lvs::Lvs, protos::lvs::LvsTool};
 
-use super::{create_run_file, NetgenLvs, NetgenLvsOpts};
+use super::{create_run_file, NetgenLvs};
 
 #[test]
 fn test_create_run_file() -> Result<(), Box<dyn std::error::Error>> {
     let temp_dir = tempfile::tempdir()?;
-    let netlist = temp_dir.path().join("netlist.spice");
-    let layout = temp_dir.path().join("layout.mag");
+    let netlist_path = temp_dir
+        .path()
+        .join("netlist.spice")
+        .into_os_string()
+        .into_string()
+        .unwrap();
+    let layout_path = temp_dir
+        .path()
+        .join("layout.mag")
+        .into_os_string()
+        .into_string()
+        .unwrap();
     let netlist_cell = "my_netlist_cell".to_string();
     let layout_cell = "my_layout_cell".to_string();
     let ext_path = temp_dir.path().join("netlist_ext.spice");
-    let opts = NetgenLvsOpts {
-        tech: "sky130A".into(),
-    };
     let (run_file_path, _) = create_run_file(
         &LvsInput {
-            netlist,
-            layout,
+            netlist_path,
+            layout_path,
             netlist_cell,
             layout_cell,
-            work_dir: temp_dir.path().to_owned(),
-            opts,
+            tool: LvsTool::MagicNetgen as i32,
+            tech: "sky130".to_string(),
+            options: HashMap::default(),
         },
+        temp_dir.path(),
         &ext_path,
     )?;
 
@@ -57,17 +68,27 @@ fn test_lvs_sky130_clean() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&work_dir)?;
     println!("done creating dirs");
     let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let netlist = base.join("src/plugins/netgen_lvs/tests/data/clean/nand2.spice");
-    let layout = base.join("src/plugins/netgen_lvs/tests/data/clean/nand2_dec_auto.mag");
-    NetgenLvs::new().lvs(LvsInput {
-        netlist,
-        layout,
-        netlist_cell: "nand2_n420x150_p420x150".to_string(),
-        layout_cell: "nand2_dec_auto".to_string(),
-        work_dir,
-        opts: NetgenLvsOpts {
+    let netlist_path = base
+        .join("src/plugins/netgen_lvs/tests/data/clean/nand2.spice")
+        .into_os_string()
+        .into_string()
+        .unwrap();
+    let layout_path = base
+        .join("src/plugins/netgen_lvs/tests/data/clean/nand2_dec_auto.mag")
+        .into_os_string()
+        .into_string()
+        .unwrap();
+    NetgenLvs::new().lvs(
+        LvsInput {
+            netlist_path,
+            layout_path,
+            tool: LvsTool::MagicNetgen as i32,
             tech: "sky130".to_string(),
+            options: HashMap::default(),
+            netlist_cell: "nand2_n420x150_p420x150".to_string(),
+            layout_cell: "nand2_dec_auto".to_string(),
         },
-    })?;
+        work_dir,
+    )?;
     Ok(())
 }
