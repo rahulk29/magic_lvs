@@ -62,6 +62,7 @@ fn test_create_run_file() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+#[ignore]
 fn test_lvs_sky130_clean() -> Result<(), Box<dyn std::error::Error>> {
     println!("lvs_sky130_clean beginning");
     let work_dir: PathBuf = "/tmp/sram22/tests/lvs/clean".into();
